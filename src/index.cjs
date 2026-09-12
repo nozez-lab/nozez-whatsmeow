@@ -21,7 +21,9 @@ function makeWASocket(options = {}) {
 
     return {
         ev: bridge,
-        user: bridge.user || { id: "bot@s.whatsapp.net", name: "Nozez WhatsMeow" },
+        get user() {
+            return bridge.user || { id: "bot@s.whatsapp.net", name: "Nozez WhatsMeow" };
+        },
         ws: { isOpen: true },
         authState: { creds: { registered: true } },
         groupMetadataCache: new Map(),

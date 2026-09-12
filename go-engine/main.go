@@ -221,6 +221,35 @@ func parseMessageContent(msg *waProto.Message) (string, string) {
 		return "Audio", "Mengirimkan Audio"
 	}
 
+	if interactive := msg.GetInteractiveResponseMessage(); interactive != nil {
+		if nf := interactive.GetNativeFlowResponseMessage(); nf != nil {
+			paramsJson := nf.GetParamsJson()
+			if paramsJson != "" {
+				var params map[string]interface{}
+				if err := json.Unmarshal([]byte(paramsJson), &params); err == nil {
+					if id, ok := params["id"].(string); ok && id != "" {
+						return "interactiveResponseMessage", id
+					}
+					if title, ok := params["title"].(string); ok && title != "" {
+						return "interactiveResponseMessage", title
+					}
+				}
+				return "interactiveResponseMessage", paramsJson
+			}
+		}
+		return "interactiveResponseMessage", ""
+	}
+
+	if btnResp := msg.GetButtonsResponseMessage(); btnResp != nil {
+		return "buttonsResponseMessage", btnResp.GetSelectedButtonId()
+	}
+
+	if listResp := msg.GetListResponseMessage(); listResp != nil {
+		if single := listResp.GetSingleSelectReply(); single != nil {
+			return "listResponseMessage", single.GetSelectedRowId()
+		}
+	}
+
 	return "Chat", ""
 }
 

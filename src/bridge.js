@@ -148,6 +148,9 @@ export class NozezWhatsMeowBridge extends EventEmitter {
         if (event === "connection.update") {
             const status = data?.status;
             if (status === "open") {
+                if (data?.botJid) {
+                    this.user = { id: data.botJid, name: "Nozez WhatsMeow" };
+                }
                 this.emit("connection.update", { open: true, ...data });
             } else if (status === "close" || status === "connecting") {
                 this.emit("connection.update", { open: false, reason: data?.reason, ...data });
