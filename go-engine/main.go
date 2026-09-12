@@ -44,11 +44,24 @@ type IPCCommand struct {
 	Payload json.RawMessage `json:"payload"`
 }
 
+type RowItem struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	ID          string `json:"id"`
+	Header      string `json:"header"`
+}
+
+type SectionItem struct {
+	Title string    `json:"title"`
+	Rows  []RowItem `json:"rows"`
+}
+
 type ButtonItem struct {
-	Text string `json:"text"`
-	ID   string `json:"id"`
-	Type string `json:"type"`
-	URL  string `json:"url"`
+	Text     string        `json:"text"`
+	ID       string        `json:"id"`
+	Type     string        `json:"type"`
+	URL      string        `json:"url"`
+	Sections []SectionItem `json:"sections"`
 }
 
 type SendMessagePayload struct {
@@ -939,7 +952,32 @@ func buildInteractiveButtons(title, footer string, buttons []ButtonItem) *waProt
 		var paramsJson []byte
 		var btnName string
 
-		if b.Type == "url" && b.URL != "" {
+		if len(b.Sections) > 0 || b.Type == "single_select" || b.Type == "list" {
+			btnName = "single_select"
+			var secs []map[string]interface{}
+			for _, sec := range b.Sections {
+				var rows []map[string]interface{}
+				for _, r := range sec.Rows {
+					rowMap := map[string]interface{}{
+						"id":          r.ID,
+						"title":       r.Title,
+						"description": r.Description,
+					}
+					if r.Header != "" {
+						rowMap["header"] = r.Header
+					}
+					rows = append(rows, rowMap)
+				}
+				secs = append(secs, map[string]interface{}{
+					"title": sec.Title,
+					"rows":  rows,
+				})
+			}
+			paramsJson, _ = json.Marshal(map[string]interface{}{
+				"title":    bText,
+				"sections": secs,
+			})
+		} else if b.Type == "url" && b.URL != "" {
 			btnName = "cta_url"
 			paramsJson, _ = json.Marshal(map[string]string{
 				"display_text": bText,
@@ -1359,6 +1397,89 @@ func buildInteractiveButtons(title, footer string, buttons []ButtonItem) *waProt
 									FileName:      &docName,
 									ContextInfo:   contextInfo,
 								},
+						}
+					}
+
+					if len(p.Buttons) > 0 && p.MediaType == "image" && msg.ImageMessage != nil {
+						var protoButtons []*waProto.InteractiveMessage_NativeFlowMessage_NativeFlowButton
+						for _, b := range p.Buttons {
+							bText := b.Text
+							bID := b.ID
+							if bID == "" {
+								bID = bText
+							}
+							var paramsJson []byte
+							var btnName string
+
+							if len(b.Sections) > 0 || b.Type == "single_select" || b.Type == "list" {
+								btnName = "single_select"
+								var secs []map[string]interface{}
+								for _, sec := range b.Sections {
+									var rows []map[string]interface{}
+									for _, r := range sec.Rows {
+										rowMap := map[string]interface{}{
+											"id":          r.ID,
+											"title":       r.Title,
+											"description": r.Description,
+										}
+										if r.Header != "" {
+											rowMap["header"] = r.Header
+										}
+										rows = append(rows, rowMap)
+									}
+									secs = append(secs, map[string]interface{}{
+										"title": sec.Title,
+										"rows":  rows,
+									})
+								}
+								paramsJson, _ = json.Marshal(map[string]interface{}{
+									"title":    bText,
+									"sections": secs,
+								})
+							} else if b.Type == "url" && b.URL != "" {
+								btnName = "cta_url"
+								paramsJson, _ = json.Marshal(map[string]string{
+									"display_text": bText,
+									"url":          b.URL,
+								})
+							} else {
+								btnName = "quick_reply"
+								paramsJson, _ = json.Marshal(map[string]string{
+									"display_text": bText,
+									"id":           bID,
+								})
+							}
+
+							protoButtons = append(protoButtons, &waProto.InteractiveMessage_NativeFlowMessage_NativeFlowButton{
+								Name:             proto.String(btnName),
+								ButtonParamsJson: proto.String(string(paramsJson)),
+							})
+						}
+
+						interactiveMsg := &waProto.InteractiveMessage{
+							Header: &waProto.InteractiveMessage_Header{
+								Title:              proto.String(""),
+								HasMediaAttachment: proto.Bool(true),
+								Media: &waProto.InteractiveMessage_Header_ImageMessage{
+									ImageMessage: msg.ImageMessage,
+								},
+							},
+							Body: &waProto.InteractiveMessage_Body{
+								Text: proto.String(p.Caption),
+							},
+							InteractiveMessage: &waProto.InteractiveMessage_NativeFlowMessage_{
+								NativeFlowMessage: &waProto.InteractiveMessage_NativeFlowMessage{
+									Buttons: protoButtons,
+								},
+							},
+						}
+
+						msg = &waProto.Message{
+							ViewOnceMessage: &waProto.FutureProofMessage{
+								Message: &waProto.Message{
+									InteractiveMessage: interactiveMsg,
+								},
+							},
 						}
 					}
 

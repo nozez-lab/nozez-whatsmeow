@@ -190,17 +190,30 @@ export class NozezWhatsMeowBridge extends EventEmitter {
     async sendMessage(jid, content = {}, options = {}) {
         if (!jid) return Promise.reject(new Error("JID tidak boleh kosong"));
 
-        // Parse buttons if provided (nativeFlow, buttons, templateButtons)
-        let rawButtons = content.nativeFlow || content.buttons || content.templateButtons || [];
+        // Parse buttons if provided (nativeFlow, buttons, templateButtons, sections)
+        let rawButtons = content.nativeFlow || content.buttons || content.templateButtons || content.sections || [];
+        if (!Array.isArray(rawButtons) && content.sections) {
+            rawButtons = [{ text: content.buttonText || content.title || "Menu", sections: content.sections }];
+        }
         let buttons = [];
         if (Array.isArray(rawButtons)) {
             buttons = rawButtons.map(b => {
                 if (typeof b === "string") return { text: b, id: b, type: "reply" };
-                const text = b.text || b.displayText || b.buttonText?.displayText || b.urlButton?.displayText || b.quickReplyButton?.displayText || "";
+                const text = b.text || b.displayText || b.buttonText?.displayText || b.urlButton?.displayText || b.quickReplyButton?.displayText || b.title || "";
                 const id = b.id || b.buttonId || b.quickReplyButton?.id || text;
                 const url = b.url || b.urlButton?.url || "";
-                const type = url ? "url" : (b.type || "reply");
-                return { text, id, type, url };
+                const rawSections = b.sections || (b.rows ? [{ title: text, rows: b.rows }] : []);
+                const sections = rawSections.map(s => ({
+                    title: s.title || "",
+                    rows: (s.rows || []).map(r => ({
+                        title: r.title || r.header || "",
+                        description: r.description || r.body || "",
+                        id: r.id || r.rowId || r.title || "",
+                        header: r.header || ""
+                    }))
+                }));
+                let type = b.type || (url ? "url" : (sections.length > 0 ? "single_select" : "reply"));
+                return { text, id, type, url, sections };
             }).filter(b => b.text);
         }
 
