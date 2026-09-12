@@ -1,4 +1,33 @@
-// Nozez Was Here: Nozez Whatsmeow Bridge
+import http from "http";
+import https from "https";
+
+function downloadUrlToTmp(url) {
+    return new Promise((resolve, reject) => {
+        const client = url.startsWith("https") ? https : http;
+        const cleanUrl = url.split("?")[0];
+        let tmpExt = path.extname(cleanUrl) || ".bin";
+        if (tmpExt.length > 5) tmpExt = ".jpg";
+        const tmpFile = path.join(os.tmpdir(), `dl_${Date.now()}_${Math.random().toString(36).substr(2, 6)}${tmpExt}`);
+        const fileStream = fs.createWriteStream(tmpFile);
+
+        client.get(url, (res) => {
+            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                return downloadUrlToTmp(res.headers.location).then(resolve).catch(reject);
+            }
+            if (res.statusCode !== 200) {
+                return reject(new Error(`Gagal download URL media (HTTP Status ${res.statusCode})`));
+            }
+            res.pipe(fileStream);
+            fileStream.on("finish", () => {
+                fileStream.close();
+                resolve(tmpFile);
+            });
+        }).on("error", (err) => {
+            fs.unlink(tmpFile, () => {});
+            reject(err);
+        });
+    });
+}
 // Disclaimer: Under the MIT License (MIT). Copyright (c) 2026 Nozez. All rights reserved.
 
 import { spawn } from "child_process";
@@ -158,7 +187,7 @@ export class NozezWhatsMeowBridge extends EventEmitter {
         return this._sendCmd("requestPairingCode", { phone });
     }
 
-    sendMessage(jid, content = {}, options = {}) {
+    async sendMessage(jid, content = {}, options = {}) {
         if (!jid) return Promise.reject(new Error("JID tidak boleh kosong"));
 
         // Parse buttons if provided (nativeFlow, buttons, templateButtons)
@@ -214,15 +243,28 @@ export class NozezWhatsMeowBridge extends EventEmitter {
 
         if (mediaType && mediaData) {
             let filePath = "";
-            if (typeof mediaData === "string") {
-                filePath = mediaData;
-            } else if (Buffer.isBuffer(mediaData)) {
-                const tmpExt = mediaType === "image" ? ".jpg" : mediaType === "video" ? ".mp4" : mediaType === "audio" || mediaType === "ptt" ? ".mp3" : ".bin";
-                const tmpFile = path.join(os.tmpdir(), `media_${Date.now()}_${Math.random().toString(36).substr(2, 6)}${tmpExt}`);
-                fs.writeFileSync(tmpFile, mediaData);
-                filePath = tmpFile;
-            } else if (typeof mediaData === "object" && mediaData.url) {
-                filePath = mediaData.url;
+            try {
+                if (typeof mediaData === "string") {
+                    if (mediaData.startsWith("http://") || mediaData.startsWith("https://")) {
+                        filePath = await downloadUrlToTmp(mediaData);
+                    } else {
+                        filePath = mediaData;
+                    }
+                } else if (Buffer.isBuffer(mediaData)) {
+                    const tmpExt = mediaType === "image" ? ".jpg" : mediaType === "video" ? ".mp4" : mediaType === "audio" || mediaType === "ptt" ? ".mp3" : ".bin";
+                    const tmpFile = path.join(os.tmpdir(), `media_${Date.now()}_${Math.random().toString(36).substr(2, 6)}${tmpExt}`);
+                    fs.writeFileSync(tmpFile, mediaData);
+                    filePath = tmpFile;
+                } else if (typeof mediaData === "object" && mediaData.url) {
+                    const url = mediaData.url;
+                    if (url.startsWith("http://") || url.startsWith("https://")) {
+                        filePath = await downloadUrlToTmp(url);
+                    } else {
+                        filePath = url;
+                    }
+                }
+            } catch (dlErr) {
+                return Promise.reject(new Error(`Gagal download URL media: ${dlErr.message}`));
             }
 
             if (filePath) {
@@ -246,14 +288,19 @@ export class NozezWhatsMeowBridge extends EventEmitter {
         return this._sendCmd("download_media", { messageId, outputDir });
     }
 
+    downloadMediaMessage(msg, type, options) {
+        const messageId = msg?.key?.id || msg?.id || msg;
+        return this.downloadMedia(messageId);
+    }
+
+    isAlive() {
+        return !!(this.goProcess && !this.goProcess.killed);
+    }
+
     async groupMetadata(jid) {
         const res = await this._sendCmd("getGroupMetadata", { jid });
-        if (res && res.resp) {
-            return res.resp;
-        }
-        if (res && res.error) {
-            throw new Error(res.error);
-        }
+        if (res && res.resp) return res.resp;
+        if (res && res.error) throw new Error(res.error);
         return res;
     }
 
@@ -263,23 +310,116 @@ export class NozezWhatsMeowBridge extends EventEmitter {
 
     async groupInviteCode(jid) {
         const res = await this._sendCmd("getGroupInviteLink", { jid });
-        if (res && res.resp) {
-            return res.resp;
-        }
-        if (res && res.error) {
-            throw new Error(res.error);
-        }
+        if (res && res.resp) return res.resp;
+        if (res && res.error) throw new Error(res.error);
+        return res;
+    }
+
+    async groupRevokeInvite(jid) {
+        const res = await this._sendCmd("revokeGroupInviteLink", { jid });
+        if (res && res.resp) return res.resp;
+        if (res && res.error) throw new Error(res.error);
         return res;
     }
 
     async groupParticipantsUpdate(jid, participants, action) {
         const res = await this._sendCmd("updateGroupParticipants", { jid, participants, action });
-        if (res && res.resp) {
-            return res.resp;
-        }
-        if (res && res.error) {
-            throw new Error(res.error);
-        }
+        if (res && res.resp) return res.resp;
+        if (res && res.error) throw new Error(res.error);
         return res;
+    }
+
+    async groupSettingUpdate(jid, setting) {
+        const res = await this._sendCmd("updateGroupSettings", { jid, setting });
+        if (res && res.resp) return res.resp;
+        if (res && res.error) throw new Error(res.error);
+        return res;
+    }
+
+    async groupUpdateSubject(jid, subject) {
+        const res = await this._sendCmd("setGroupSubject", { jid, subject });
+        if (res && res.resp) return res.resp;
+        if (res && res.error) throw new Error(res.error);
+        return res;
+    }
+
+    async groupUpdateDescription(jid, description) {
+        const res = await this._sendCmd("setGroupDescription", { jid, description });
+        if (res && res.resp) return res.resp;
+        if (res && res.error) throw new Error(res.error);
+        return res;
+    }
+
+    async updateBlockStatus(jid, status) {
+        const res = await this._sendCmd("updateBlockStatus", { jid, action: status });
+        if (res && res.error) throw new Error(res.error);
+        return res;
+    }
+
+    async profilePictureUrl(jid, type) {
+        try {
+            const res = await this._sendCmd("profilePictureUrl", { jid });
+            return res?.resp || null;
+        } catch {
+            return null;
+        }
+    }
+
+    async groupLeave(jid) {
+        const res = await this._sendCmd("groupLeave", { jid });
+        if (res && res.error) throw new Error(res.error);
+        return res;
+    }
+
+    async groupCreate(subject, participants) {
+        const res = await this._sendCmd("groupCreate", { subject, participants });
+        if (res && res.resp) return res.resp;
+        if (res && res.error) throw new Error(res.error);
+        return res;
+    }
+
+    async groupAcceptInvite(code) {
+        const res = await this._sendCmd("groupAcceptInvite", { code });
+        if (res && res.resp) return res.resp;
+        if (res && res.error) throw new Error(res.error);
+        return res;
+    }
+
+    async sendPresenceUpdate(presence, jid) {
+        try {
+            return await this._sendCmd("sendPresenceUpdate", { presence, jid });
+        } catch {
+            return {};
+        }
+    }
+
+    async updateProfileStatus(status) {
+        const res = await this._sendCmd("updateProfileStatus", { status });
+        if (res && res.error) throw new Error(res.error);
+        return res;
+    }
+
+    async readMessages(keys) {
+        try {
+            return await this._sendCmd("readMessages", { keys });
+        } catch {
+            return {};
+        }
+    }
+
+    async chatModify(mod, jid) {
+        return { status: 200 };
+    }
+
+    async logout() {
+        return this.stop();
+    }
+
+    async fetchPrivacySettings() {
+        return {};
+    }
+
+    async getBusinessProfile(jid) {
+        return null;
     }
 }

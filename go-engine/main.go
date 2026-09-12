@@ -20,6 +20,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"go.mau.fi/whatsmeow"
@@ -1380,6 +1381,186 @@ func buildInteractiveButtons(title, footer string, buttons []ButtonItem) *waProt
 							"error":  err.Error(),
 						})
 					}
+				}
+			// Block / Unblock User
+			case "updateBlockStatus", "blockUser":
+				var p struct {
+					JID    string `json:"jid"`
+					Action string `json:"action"`
+				}
+
+				if err := json.Unmarshal(cmd.Payload, &p); err == nil {
+					targetJID, err := types.ParseJID(p.JID)
+
+					if err == nil {
+						var action events.BlocklistAction
+						if p.Action == "block" {
+							action = events.BlocklistActionBlock
+						} else {
+							action = events.BlocklistActionUnblock
+						}
+
+						_, err = client.UpdateBlocklist(targetJID, action)
+
+						if err == nil {
+							sendIPC("response", map[string]interface{}{
+								"id":     cmd.ID,
+								"status": "ok",
+							})
+						} else {
+							sendIPC("response", map[string]interface{}{
+								"id":     cmd.ID,
+								"status": "error",
+								"error":  err.Error(),
+							})
+						}
+					}
+				}
+
+			// Profile Picture URL
+			case "profilePictureUrl", "getProfilePicture":
+				var p struct {
+					JID string `json:"jid"`
+				}
+
+				if err := json.Unmarshal(cmd.Payload, &p); err == nil {
+					targetJID, err := types.ParseJID(p.JID)
+
+					if err == nil {
+						info, err := client.GetProfilePictureInfo(
+							ctx,
+							targetJID,
+							&whatsmeow.GetProfilePictureParams{},
+						)
+
+						if err == nil && info != nil {
+							sendIPC("response", map[string]interface{}{
+								"id":     cmd.ID,
+								"status": "ok",
+								"resp":   info.URL,
+							})
+						} else {
+							sendIPC("response", map[string]interface{}{
+								"id":     cmd.ID,
+								"status": "error",
+								"error":  "Profile picture tidak ditemukan",
+							})
+						}
+					}
+				}
+
+			// Leave Group
+			case "groupLeave", "leaveGroup":
+				var p GroupJIDPayload
+				if err := json.Unmarshal(cmd.Payload, &p); err == nil {
+					targetJID, err := types.ParseJID(p.JID)
+					if err == nil {
+						err = client.LeaveGroup(ctx, targetJID)
+						if err == nil {
+							sendIPC("response", map[string]interface{}{"id": cmd.ID, "status": "ok"})
+						} else {
+							sendIPC("response", map[string]interface{}{"id": cmd.ID, "status": "error", "error": err.Error()})
+						}
+					}
+				}
+
+			// Create Group
+			case "groupCreate", "createGroup":
+				var p struct {
+					Subject      string   `json:"subject"`
+					Participants []string `json:"participants"`
+				}
+				if err := json.Unmarshal(cmd.Payload, &p); err == nil {
+					var pJIDs []types.JID
+					for _, u := range p.Participants {
+						if uJID, err := types.ParseJID(u); err == nil {
+							pJIDs = append(pJIDs, uJID)
+						}
+					}
+					res, err := client.CreateGroup(ctx, whatsmeow.ReqCreateGroup{Name: p.Subject, Participants: pJIDs})
+					if err == nil {
+						sendIPC("response", map[string]interface{}{"id": cmd.ID, "status": "ok", "resp": map[string]interface{}{"id": res.JID.String(), "subject": res.Name}})
+					} else {
+						sendIPC("response", map[string]interface{}{"id": cmd.ID, "status": "error", "error": err.Error()})
+					}
+				}
+
+			// Join / Accept Group Invite
+			case "groupAcceptInvite", "joinGroup":
+				var p struct {
+					Code string `json:"code"`
+				}
+				if err := json.Unmarshal(cmd.Payload, &p); err == nil {
+					code := strings.TrimPrefix(p.Code, "https://chat.whatsapp.com/")
+					gJID, err := client.JoinGroupWithLink(ctx, code)
+					if err == nil {
+						sendIPC("response", map[string]interface{}{"id": cmd.ID, "status": "ok", "resp": gJID.String()})
+					} else {
+						sendIPC("response", map[string]interface{}{"id": cmd.ID, "status": "error", "error": err.Error()})
+					}
+				}
+
+			// Send Presence Update
+			case "sendPresenceUpdate":
+				var p struct {
+					Presence string `json:"presence"`
+					JID      string `json:"jid"`
+				}
+				if err := json.Unmarshal(cmd.Payload, &p); err == nil {
+					var presence types.Presence
+					switch p.Presence {
+					case "composing":
+						presence = types.PresenceComposing
+					case "recording":
+						presence = types.PresenceMediaRecording
+					case "paused":
+						presence = types.PresencePaused
+					case "available":
+						presence = types.PresenceAvailable
+					case "unavailable":
+						presence = types.PresenceUnavailable
+					default:
+						presence = types.PresenceAvailable
+					}
+					targetJID, _ := types.ParseJID(p.JID)
+					if targetJID.IsEmpty() {
+						client.SendPresence(ctx, presence)
+					} else {
+						client.SendChatPresence(ctx, targetJID, presence, types.ChatPresenceMediaText)
+					}
+					sendIPC("response", map[string]interface{}{"id": cmd.ID, "status": "ok"})
+				}
+
+			// Update Profile Status (Bio)
+			case "updateProfileStatus", "setStatus":
+				var p struct {
+					Status string `json:"status"`
+				}
+				if err := json.Unmarshal(cmd.Payload, &p); err == nil {
+					err := client.SetStatusMessage(ctx, p.Status)
+					if err == nil {
+						sendIPC("response", map[string]interface{}{"id": cmd.ID, "status": "ok"})
+					} else {
+						sendIPC("response", map[string]interface{}{"id": cmd.ID, "status": "error", "error": err.Error()})
+					}
+				}
+
+			// Read Messages
+			case "readMessages":
+				var p struct {
+					Keys []struct {
+						RemoteJID   string `json:"remoteJid"`
+						ID          string `json:"id"`
+						Participant string `json:"participant"`
+					} `json:"keys"`
+				}
+				if err := json.Unmarshal(cmd.Payload, &p); err == nil {
+					for _, k := range p.Keys {
+						cJID, _ := types.ParseJID(k.RemoteJID)
+						sJID, _ := types.ParseJID(k.Participant)
+						client.MarkRead(ctx, []string{k.ID}, time.Now(), cJID, sJID)
+					}
+					sendIPC("response", map[string]interface{}{"id": cmd.ID, "status": "ok"})
 				}
 			}
 		}
