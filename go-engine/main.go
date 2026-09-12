@@ -359,6 +359,14 @@ func main() {
 				var p PairPhonePayload
 
 				if err := json.Unmarshal(cmd.Payload, &p); err == nil {
+					if client.Store.ID != nil {
+						sendIPC("response", map[string]interface{}{
+							"id":    cmd.ID,
+							"error": "Client sudah terhubung/login (session aktif)",
+						})
+						continue
+					}
+
 					if !client.IsConnected() {
 						sendIPC("response", map[string]interface{}{
 							"id":    cmd.ID,
