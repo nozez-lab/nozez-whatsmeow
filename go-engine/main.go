@@ -905,7 +905,7 @@ func main() {
 				}
 
 			// Send Message
-			case "sendMessage":
+			case "sendMessage", "send_message":
 				var p SendMessagePayload
 
 				if err := json.Unmarshal(cmd.Payload, &p); err == nil {
@@ -1103,7 +1103,7 @@ func main() {
 				}
 
 			// Send Media
-			case "sendMedia":
+			case "sendMedia", "send_media":
 				var p SendMediaPayload
 
 				if err := json.Unmarshal(cmd.Payload, &p); err == nil {

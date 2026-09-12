@@ -159,8 +159,23 @@ export class NozezWhatsMeowBridge extends EventEmitter {
     }
 
     sendMessage(jid, content = {}, options = {}) {
+        if (!jid) return Promise.reject(new Error("JID tidak boleh kosong"));
+
+        // 1. Reaction Message
+        if (content.react) {
+            return this._sendCmd("reactMessage", {
+                jid,
+                key: {
+                    id: content.react.key?.id || options.quoted?.key?.id || "",
+                    participant: content.react.key?.participant || options.quoted?.key?.participant || ""
+                },
+                text: content.react.text || ""
+            });
+        }
+
+        // 2. Text Message
         if (content.text) {
-            return this._sendCmd("send_message", {
+            return this._sendCmd("sendMessage", {
                 jid,
                 text: content.text,
                 quotedId: options.quoted?.key?.id || "",
@@ -168,38 +183,43 @@ export class NozezWhatsMeowBridge extends EventEmitter {
             });
         }
 
+        // 3. Media Messages (image, video, audio, ptt, document, sticker)
         let mediaType = "";
-        let filePath = "";
+        let mediaData = content.image || content.video || content.audio || content.ptt || content.document || content.sticker;
         let caption = content.caption || "";
         let fileName = content.fileName || "";
 
-        if (content.image) {
-            mediaType = "image";
-            filePath = content.image;
-        } else if (content.video) {
-            mediaType = "video";
-            filePath = content.video;
-        } else if (content.audio) {
-            mediaType = "audio";
-            filePath = content.audio;
-        } else if (content.ptt) {
-            mediaType = "ptt";
-            filePath = content.ptt;
-        } else if (content.document) {
-            mediaType = "document";
-            filePath = content.document;
-        }
+        if (content.image) mediaType = "image";
+        else if (content.video) mediaType = "video";
+        else if (content.audio) mediaType = "audio";
+        else if (content.ptt) mediaType = "ptt";
+        else if (content.document) mediaType = "document";
+        else if (content.sticker) mediaType = "sticker";
 
-        if (mediaType && filePath) {
-            return this._sendCmd("send_media", {
-                jid,
-                mediaType,
-                filePath,
-                caption,
-                fileName,
-                quotedId: options.quoted?.key?.id || "",
-                quotedSender: options.quoted?.key?.participant || ""
-            });
+        if (mediaType && mediaData) {
+            let filePath = "";
+            if (typeof mediaData === "string") {
+                filePath = mediaData;
+            } else if (Buffer.isBuffer(mediaData)) {
+                const tmpExt = mediaType === "image" ? ".jpg" : mediaType === "video" ? ".mp4" : mediaType === "audio" || mediaType === "ptt" ? ".mp3" : ".bin";
+                const tmpFile = path.join(os.tmpdir(), `media_${Date.now()}_${Math.random().toString(36).substr(2, 6)}${tmpExt}`);
+                fs.writeFileSync(tmpFile, mediaData);
+                filePath = tmpFile;
+            } else if (typeof mediaData === "object" && mediaData.url) {
+                filePath = mediaData.url;
+            }
+
+            if (filePath) {
+                return this._sendCmd("sendMedia", {
+                    jid,
+                    mediaType,
+                    filePath,
+                    caption,
+                    fileName,
+                    quotedId: options.quoted?.key?.id || "",
+                    quotedSender: options.quoted?.key?.participant || ""
+                });
+            }
         }
 
         return Promise.reject(new Error("Format pesan tidak didukung oleh nozez-whatsmeow"));
