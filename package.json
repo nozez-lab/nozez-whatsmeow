@@ -1,6 +1,6 @@
 {
     "name": "nozez-whatsmeow",
-    "version": "1.0.13",
+    "version": "1.0.14",
     "description": "High-performance WhatsApp bot library bridging Golang engine (whatsmeow) and Node.js via Stdio IPC",
     "type": "module",
     "main": "./src/index.cjs",

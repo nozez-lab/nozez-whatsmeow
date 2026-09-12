@@ -52,6 +52,15 @@ function parseToBaileys(raw) {
                         stanzaId: item.quotedId,
                         participant: item.quotedSender
                     }
+                },
+                buttonsResponseMessage: {
+                    selectedButtonId: bodyText,
+                    selectedDisplayText: bodyText
+                },
+                interactiveResponseMessage: {
+                    nativeFlowResponseMessage: {
+                        paramsJson: JSON.stringify({ id: bodyText })
+                    }
                 }
             };
         } else {
@@ -59,6 +68,15 @@ function parseToBaileys(raw) {
                 conversation: bodyText,
                 extendedTextMessage: {
                     text: bodyText
+                },
+                buttonsResponseMessage: {
+                    selectedButtonId: bodyText,
+                    selectedDisplayText: bodyText
+                },
+                interactiveResponseMessage: {
+                    nativeFlowResponseMessage: {
+                        paramsJson: JSON.stringify({ id: bodyText })
+                    }
                 }
             };
         }
