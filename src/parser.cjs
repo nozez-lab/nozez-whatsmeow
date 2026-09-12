@@ -43,6 +43,21 @@ function parseToBaileys(raw) {
                 url: item.mediaUrl || '',
             }
         };
+    } else if (msgType === 'buttonsResponseMessage' || msgType === 'ButtonResponse') {
+        messageObj = {
+            buttonsResponseMessage: {
+                selectedButtonId: bodyText,
+                selectedDisplayText: bodyText
+            }
+        };
+    } else if (msgType === 'interactiveResponseMessage' || msgType === 'InteractiveResponse' || item.buttonId) {
+        messageObj = {
+            interactiveResponseMessage: {
+                nativeFlowResponseMessage: {
+                    paramsJson: JSON.stringify({ id: item.buttonId || bodyText })
+                }
+            }
+        };
     } else {
         if (item.quotedId) {
             messageObj = {
@@ -52,15 +67,6 @@ function parseToBaileys(raw) {
                         stanzaId: item.quotedId,
                         participant: item.quotedSender
                     }
-                },
-                buttonsResponseMessage: {
-                    selectedButtonId: bodyText,
-                    selectedDisplayText: bodyText
-                },
-                interactiveResponseMessage: {
-                    nativeFlowResponseMessage: {
-                        paramsJson: JSON.stringify({ id: bodyText })
-                    }
                 }
             };
         } else {
@@ -68,15 +74,6 @@ function parseToBaileys(raw) {
                 conversation: bodyText,
                 extendedTextMessage: {
                     text: bodyText
-                },
-                buttonsResponseMessage: {
-                    selectedButtonId: bodyText,
-                    selectedDisplayText: bodyText
-                },
-                interactiveResponseMessage: {
-                    nativeFlowResponseMessage: {
-                        paramsJson: JSON.stringify({ id: bodyText })
-                    }
                 }
             };
         }
