@@ -118,10 +118,21 @@ class NozezWhatsMeowBridge extends EventEmitter {
             this.emit("qr", data.codes ? data.codes[0] : "");
         } else if (event === "pairing_code") {
             this.emit("pairing_code", data.code);
+            for (const [id, req] of this.pendingRequests.entries()) {
+                req.resolve({ status: "ok", code: data.code });
+                this.pendingRequests.delete(id);
+            }
+        } else if (event === "error") {
+            this.emit("error", data);
+            for (const [id, req] of this.pendingRequests.entries()) {
+                req.reject(new Error(data.message || data.error || "IPC Error"));
+                this.pendingRequests.delete(id);
+            }
         } else if (event === "messages.upsert") {
-            this.emit("messages.upsert", data);
-            const baileysFormat = parseToBaileys(data.raw || {});
+            const baileysFormat = parseToBaileys(data.raw || data);
+            this.emit("messages.upsert", baileysFormat);
             this.emit("message", baileysFormat);
+            this.emit("raw_message", data);
         }
     }
 

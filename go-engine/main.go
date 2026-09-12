@@ -360,8 +360,9 @@ func main() {
 
 				if err := json.Unmarshal(cmd.Payload, &p); err == nil {
 					if !client.IsConnected() {
-						sendIPC("error", map[string]string{
-							"message": "Client belum terhubung ke server WA",
+						sendIPC("response", map[string]interface{}{
+							"id":    cmd.ID,
+							"error": "Client belum terhubung ke server WA",
 						})
 						continue
 					}
@@ -378,11 +379,22 @@ func main() {
 						sendIPC("pairing_code", map[string]string{
 							"code": code,
 						})
+						sendIPC("response", map[string]interface{}{
+							"id":     cmd.ID,
+							"status": "ok",
+							"code":   code,
+						})
 					} else {
-						sendIPC("error", map[string]string{
-							"message": "Gagal pair: " + err.Error(),
+						sendIPC("response", map[string]interface{}{
+							"id":    cmd.ID,
+							"error": "Gagal pair: " + err.Error(),
 						})
 					}
+				} else {
+					sendIPC("response", map[string]interface{}{
+						"id":    cmd.ID,
+						"error": "Invalid payload",
+					})
 				}
 
 			// Group Metadata
