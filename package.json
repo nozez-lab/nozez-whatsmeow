@@ -1,9 +1,19 @@
 {
     "name": "nozez-whatsmeow",
     "version": "1.0.0",
-    "description": "High-performance WhatsApp bot library bridging Go engine (whatsmeow) and Node.js via Stdio IPC by Nozez",
+    "description": "High-performance WhatsApp bot library bridging Golang engine (whatsmeow) and Node.js via Stdio IPC",
     "type": "module",
     "main": "./src/index.js",
+    "author": "Nozez",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/nozez-lab/nozez-whatsmeow.git"
+    },
+    "bugs": {
+        "url": "https://github.com/nozez-lab/nozez-whatsmeow/issues"
+    },
+    "homepage": "https://github.com/nozez-lab/nozez-whatsmeow#readme",
     "files": [
         "src",
         "go-engine",

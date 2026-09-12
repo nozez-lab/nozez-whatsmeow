@@ -1,90 +1,160 @@
 # 🐾 nozez-whatsmeow
 
-**nozez-whatsmeow** adalah library WhatsApp API untuk Node.js ber-performa tinggi buatan **Nozez**. Library ini memiliki developer experience (API) yang mirip dengan **Baileys** (`makeWASocket`, `ev.on`, `sendMessage`, dll), tetapi seluruh engine koneksi WhatsApp berjalan di atas **Golang (`whatsmeow`)** via Stdio IPC.
+[![npm version](https://img.shields.io/badge/version-1.0.0-crimson.svg)](https://github.com/nozez-lab/nozez-whatsmeow)
+[![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
+[![Engine: whatsmeow](https://img.shields.io/badge/Engine-whatsmeow%20(Go)-blue.svg)](https://go.mau.fi/whatsmeow)
+
+**nozez-whatsmeow** is a high-performance WhatsApp API library for **Node.js** developed by **Nozez**. It delivers a familiar, Baileys-like developer experience (`makeWASocket`, `ev.on`, `sendMessage`, etc.) while delegating all WebSocket network connections and protocol encryptions to a lightweight **Golang engine (`whatsmeow`)** under the hood.
+
+With **nozez-whatsmeow**, you get the ease of writing code in JavaScript/TypeScript combined with the extreme speed, stability, and memory efficiency of Go.
 
 ---
 
-## ⚡ Keunggulan nozez-whatsmeow
+## 🔥 Key Features
 
-- **Sintaks Baileys-like**: Menggunakan sintaks yang sangat familiar bagi developer Node.js (`makeWASocket`, `sendMessage`, `ev.on`).
-- **Ringan & Hemat Resource**: Penggunaan RAM jauh lebih hemat (~20MB - 50MB) karena WebSocket dikelola langsung oleh engine Go.
-- **SQLite Engine**: Sesi WhatsApp disimpan menggunakan SQLite yang aman, tangguh terhadap crash, dan tidak mudah corrupt.
-- **Zero Go Dependency**: Sudah bisa langsung dijalankan di environment Node.js (VPS, Terminal, maupun Panel Pterodactyl).
+- **Baileys-like Developer Experience**: Zero learning curve if you are coming from Baileys (`makeWASocket`, `ev.on("messages.upsert")`, `sendMessage`, etc.).
+- **Ultra-Low Memory Footprint**: Uses only **~20MB - 50MB of RAM** (compared to standard Node.js WhatsApp libraries taking 200MB+).
+- **SQLite Session Persistence**: Session keys and device credentials are stored in a resilient SQLite database (`whatsmeow.db`), drastically reducing session corruption and unexpected logouts.
+- **Zero Go Setup Needed at Runtime**: Pre-compiled binaries (`main_win.exe` for Windows and `main_linux` for Linux) are bundled, enabling plug-and-play usage on Node.js hosting environments like Pterodactyl panels, VPS, or local development.
+- **Rich Media & Media Downloader**: Full support for images, videos, audio, voice notes (PTT), documents, stickers, and on-demand media downloads.
+- **Pretty Terminal Logger**: Styled terminal logs (`chatLog`) featuring colored badges, timestamps, and sender details out of the box.
 
 ---
 
-## 📦 Instalasi
+## 📦 Installation
 
-Jika dijadikan paket lokal atau dipasang dari npm:
+Install via **NPM**:
 
 ```bash
 npm install nozez-whatsmeow
 ```
 
+Or using **Yarn**:
+
+```bash
+yarn add nozez-whatsmeow
+```
+
 ---
 
-## 🚀 Quick Start (Mulai Cepat)
+## 🚀 Quick Start
+
+Here is a simple example to connect your bot to WhatsApp:
 
 ```javascript
 import { makeWASocket, chatLog } from "nozez-whatsmeow";
 
 const conn = makeWASocket({
-  sessionName: "nozez-session",
+  sessionName: "nozez-session", // Custom session identifier
 });
 
-// PENTING: Wajib dipanggil untuk menyalakan engine Go!
+// IMPORTANT: Must be called to launch the underlying Go engine!
 conn.start();
 
-// Status koneksi
+// Handle Connection Updates
 conn.ev.on("connection.update", (data) => {
   if (data.open) {
-    console.log("✅ Berhasil terhubung ke WhatsApp!");
+    console.log("✅ Successfully connected to WhatsApp!");
   } else if (data.reason === "connection_lost") {
-    console.log("⚠️ Koneksi terputus, mencoba menyambung ulang...");
+    console.log("⚠️ Connection lost, attempting automatic reconnect...");
   }
 });
 
-// Kode Pairing (jika login nomor HP)
+// Handle Phone Pairing Code (for phone number login)
 conn.ev.on("pairing_code", (code) => {
-  console.log("Kode Pairing Kamu:", code);
+  console.log("🔑 Your WhatsApp Pairing Code:", code);
 });
 
-// Pesan Masuk (Auto Chat Log)
+// Incoming Message Listener
 conn.ev.on("messages.upsert", ({ meta, raw }) => {
+  // Pretty terminal chat logger
   chatLog({ ...meta, timestamp: raw.timestamp, isFromMe: raw.isFromMe });
 });
 
-// Contoh Minta Kode Pairing
+// Request Phone Pairing Code (call after conn.start())
 await conn.requestPairingCode("628xxxxxxxxxx");
 ```
 
 ---
 
-## 📤 Mengirim Pesan
+## 📤 Sending Messages
+
+Sending messages is unified through `conn.sendMessage(jid, content, options)`:
 
 ```javascript
-// Pesan Teks
+// Send Plain Text Message
 await conn.sendMessage("628xxx@s.whatsapp.net", {
-  text: "Halo dari nozez-whatsmeow! 🚀",
+  text: "Hello World from nozez-whatsmeow! 🚀",
 });
 
-// Gambar
+// Send Image with Caption
 await conn.sendMessage("628xxx@s.whatsapp.net", {
-  image: "./gambar.jpg",
-  caption: "Deskripsi Gambar",
+  image: "./assets/photo.jpg",
+  caption: "Check out this image!",
 });
 
-// Document / File
+// Send Video
 await conn.sendMessage("628xxx@s.whatsapp.net", {
-  document: "./berkas.pdf",
-  fileName: "Dokumen.pdf",
+  video: "./assets/clip.mp4",
+  caption: "Awesome video clip",
+});
+
+// Send Audio / Voice Note (PTT)
+await conn.sendMessage("628xxx@s.whatsapp.net", {
+  ptt: "./assets/voice.ogg",
+});
+
+// Send Document File
+await conn.sendMessage("628xxx@s.whatsapp.net", {
+  document: "./documents/report.pdf",
+  fileName: "Monthly_Report.pdf",
+});
+
+// Reply to a Message (Quoted Reply)
+await conn.sendMessage(
+  jid,
+  { text: "This is a reply to your message" },
+  { quoted: m }
+);
+```
+
+---
+
+## 📥 Downloading Received Media
+
+You can download media from received messages directly:
+
+```javascript
+conn.ev.on("messages.upsert", async ({ meta, raw }) => {
+  if (meta.msgType === "Image" || meta.msgType === "Video" || meta.msgType === "Document") {
+    try {
+      const res = await conn.downloadMedia(raw.id, "./downloads");
+      console.log("📁 Media downloaded to:", res.filePath);
+    } catch (err) {
+      console.error("Failed to download media:", err.message);
+    }
+  }
 });
 ```
 
 ---
 
-## 📜 Lisensi & Kredit
+## 🛠️ API Reference
 
-- Built by **Nozez**
-- Underlying engine powered by [whatsmeow (mau.fi)](https://go.mau.fi/whatsmeow) & SQLite
-- Released under the MIT License.
+### `makeWASocket(options)`
+- `options.sessionName` *(string, default: `"nozez"`)*: Session name directory in `./sessions/`.
+
+### Methods
+- `conn.start()`: Starts the background Go engine process.
+- `conn.stop()`: Gracefully closes the connection and terminates the Go engine process.
+- `conn.requestPairingCode(phone)`: Requests an 8-digit pairing code for login.
+- `conn.sendMessage(jid, content, options)`: Sends text or media messages.
+- `conn.downloadMedia(messageId, outputDir)`: Downloads media attachment to `outputDir`.
+
+---
+
+## 📄 License & Acknowledgements
+
+- **Developer**: Created & Maintained by **[Nozez](https://github.com/nozez-lab)**.
+- **Engine**: Powered by **[whatsmeow](https://go.mau.fi/whatsmeow)** Golang library & SQLite.
+- Released under the [MIT License](LICENSE).
