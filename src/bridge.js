@@ -161,6 +161,20 @@ export class NozezWhatsMeowBridge extends EventEmitter {
     sendMessage(jid, content = {}, options = {}) {
         if (!jid) return Promise.reject(new Error("JID tidak boleh kosong"));
 
+        // Parse buttons if provided (nativeFlow, buttons, templateButtons)
+        let rawButtons = content.nativeFlow || content.buttons || content.templateButtons || [];
+        let buttons = [];
+        if (Array.isArray(rawButtons)) {
+            buttons = rawButtons.map(b => {
+                if (typeof b === "string") return { text: b, id: b, type: "reply" };
+                const text = b.text || b.displayText || b.buttonText?.displayText || b.urlButton?.displayText || b.quickReplyButton?.displayText || "";
+                const id = b.id || b.buttonId || b.quickReplyButton?.id || text;
+                const url = b.url || b.urlButton?.url || "";
+                const type = url ? "url" : (b.type || "reply");
+                return { text, id, type, url };
+            }).filter(b => b.text);
+        }
+
         // 1. Reaction Message
         if (content.react) {
             return this._sendCmd("reactMessage", {
@@ -178,6 +192,8 @@ export class NozezWhatsMeowBridge extends EventEmitter {
             return this._sendCmd("sendMessage", {
                 jid,
                 text: content.text,
+                footer: content.footer || "",
+                buttons: buttons,
                 quotedId: options.quoted?.key?.id || "",
                 quotedSender: options.quoted?.key?.participant || ""
             });
@@ -216,6 +232,7 @@ export class NozezWhatsMeowBridge extends EventEmitter {
                     filePath,
                     caption,
                     fileName,
+                    buttons: buttons,
                     quotedId: options.quoted?.key?.id || "",
                     quotedSender: options.quoted?.key?.participant || ""
                 });

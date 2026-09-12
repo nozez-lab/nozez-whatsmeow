@@ -43,21 +43,31 @@ type IPCCommand struct {
 	Payload json.RawMessage `json:"payload"`
 }
 
+type ButtonItem struct {
+	Text string `json:"text"`
+	ID   string `json:"id"`
+	Type string `json:"type"`
+	URL  string `json:"url"`
+}
+
 type SendMessagePayload struct {
-	JID          string `json:"jid"`
-	Text         string `json:"text"`
-	QuotedID     string `json:"quotedId"`
-	QuotedSender string `json:"quotedSender"`
+	JID          string       `json:"jid"`
+	Text         string       `json:"text"`
+	Footer       string       `json:"footer"`
+	Buttons      []ButtonItem `json:"buttons"`
+	QuotedID     string       `json:"quotedId"`
+	QuotedSender string       `json:"quotedSender"`
 }
 
 type SendMediaPayload struct {
-	JID          string `json:"jid"`
-	MediaType    string `json:"mediaType"`
-	FilePath     string `json:"filePath"`
-	Caption      string `json:"caption"`
-	FileName     string `json:"fileName"`
-	QuotedID     string `json:"quotedId"`
-	QuotedSender string `json:"quotedSender"`
+	JID          string       `json:"jid"`
+	MediaType    string       `json:"mediaType"`
+	FilePath     string       `json:"filePath"`
+	Caption      string       `json:"caption"`
+	FileName     string       `json:"fileName"`
+	Buttons      []ButtonItem `json:"buttons"`
+	QuotedID     string       `json:"quotedId"`
+	QuotedSender string       `json:"quotedSender"`
 }
 
 type DownloadMediaPayload struct {
@@ -912,6 +922,68 @@ func main() {
 					})
 				}
 
+func buildInteractiveButtons(title, footer string, buttons []ButtonItem) *waProto.Message {
+	if len(buttons) == 0 {
+		return nil
+	}
+
+	var protoButtons []*waProto.InteractiveMessage_NativeFlowMessage_NativeFlowButton
+	for _, b := range buttons {
+		bText := b.Text
+		bID := b.ID
+		if bID == "" {
+			bID = bText
+		}
+
+		var paramsJson []byte
+		var btnName string
+
+		if b.Type == "url" && b.URL != "" {
+			btnName = "cta_url"
+			paramsJson, _ = json.Marshal(map[string]string{
+				"display_text": bText,
+				"url":          b.URL,
+			})
+		} else {
+			btnName = "quick_reply"
+			paramsJson, _ = json.Marshal(map[string]string{
+				"display_text": bText,
+				"id":           bID,
+			})
+		}
+
+		protoButtons = append(protoButtons, &waProto.InteractiveMessage_NativeFlowMessage_NativeFlowButton{
+			Name:             proto.String(btnName),
+			ButtonParamsJson: proto.String(string(paramsJson)),
+		})
+	}
+
+	interactiveMsg := &waProto.InteractiveMessage{
+		Body: &waProto.InteractiveMessage_Body{
+			Text: proto.String(title),
+		},
+		InteractiveMessage: &waProto.InteractiveMessage_NativeFlowMessage_{
+			NativeFlowMessage: &waProto.InteractiveMessage_NativeFlowMessage{
+				Buttons: protoButtons,
+			},
+		},
+	}
+
+	if footer != "" {
+		interactiveMsg.Footer = &waProto.InteractiveMessage_Footer{
+			Text: proto.String(footer),
+		}
+	}
+
+	return &waProto.Message{
+		ViewOnceMessage: &waProto.FutureProofMessage{
+			Message: &waProto.Message{
+				InteractiveMessage: interactiveMsg,
+			},
+		},
+	}
+}
+
 			// Send Message
 			case "sendMessage", "send_message":
 				var p SendMessagePayload
@@ -922,18 +994,19 @@ func main() {
 					if err == nil {
 						var msg *waProto.Message
 
-						if p.QuotedID != "" {
+						if len(p.Buttons) > 0 {
+							msg = buildInteractiveButtons(p.Text, p.Footer, p.Buttons)
+						} else if p.QuotedID != "" {
 							contextInfo := &waProto.ContextInfo{
 								StanzaID:    &p.QuotedID,
 								Participant: &p.QuotedSender,
 							}
 
 							msg = &waProto.Message{
-								ExtendedTextMessage:
-									&waProto.ExtendedTextMessage{
-										Text:        &p.Text,
-										ContextInfo: contextInfo,
-									},
+								ExtendedTextMessage: &waProto.ExtendedTextMessage{
+									Text:        &p.Text,
+									ContextInfo: contextInfo,
+								},
 							}
 						} else {
 							msg = &waProto.Message{
