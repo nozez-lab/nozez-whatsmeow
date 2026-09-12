@@ -2,7 +2,7 @@
 
 const { NozezWhatsMeowBridge } = require("./bridge.cjs");
 const { chatLog } = require("./chatlog.cjs");
-const { extractNumber, isLid, isGroup, jidNormalizedUser } = require("./utils.cjs");
+const { extractNumber, isLid, isGroup, jidNormalizedUser, getContentType } = require("./utils.cjs");
 
 function makeWASocket(options = {}) {
     const bridge = new NozezWhatsMeowBridge(options);
@@ -14,7 +14,11 @@ function makeWASocket(options = {}) {
         end: () => bridge.stop(),
         requestPairingCode: (phone) => bridge.requestPairingCode(phone),
         sendMessage: (jid, content, options) => bridge.sendMessage(jid, content, options),
-        downloadMedia: (messageId, outputDir) => bridge.downloadMedia(messageId, outputDir)
+        downloadMedia: (messageId, outputDir) => bridge.downloadMedia(messageId, outputDir),
+        groupMetadata: (jid) => bridge.groupMetadata(jid),
+        groupFetchAllParticipating: () => bridge.groupFetchAllParticipating(),
+        groupInviteCode: (jid) => bridge.groupInviteCode(jid),
+        groupParticipantsUpdate: (jid, participants, action) => bridge.groupParticipantsUpdate(jid, participants, action),
     };
 }
 
@@ -24,5 +28,6 @@ module.exports = {
     extractNumber,
     isLid,
     isGroup,
-    jidNormalizedUser
+    jidNormalizedUser,
+    getContentType
 };

@@ -203,6 +203,43 @@ class NozezWhatsMeowBridge extends EventEmitter {
     downloadMedia(messageId, outputDir = "./downloads") {
         return this._sendCmd("download_media", { messageId, outputDir });
     }
+
+    async groupMetadata(jid) {
+        const res = await this._sendCmd("getGroupMetadata", { jid });
+        if (res && res.resp) {
+            return res.resp;
+        }
+        if (res && res.error) {
+            throw new Error(res.error);
+        }
+        return res;
+    }
+
+    async groupFetchAllParticipating() {
+        return {};
+    }
+
+    async groupInviteCode(jid) {
+        const res = await this._sendCmd("getGroupInviteLink", { jid });
+        if (res && res.resp) {
+            return res.resp;
+        }
+        if (res && res.error) {
+            throw new Error(res.error);
+        }
+        return res;
+    }
+
+    async groupParticipantsUpdate(jid, participants, action) {
+        const res = await this._sendCmd("updateGroupParticipants", { jid, participants, action });
+        if (res && res.resp) {
+            return res.resp;
+        }
+        if (res && res.error) {
+            throw new Error(res.error);
+        }
+        return res;
+    }
 }
 
 module.exports = { NozezWhatsMeowBridge };

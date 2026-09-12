@@ -22,9 +22,17 @@ function jidNormalizedUser(jid) {
     return jid;
 }
 
+function getContentType(content) {
+    if (!content) return undefined;
+    const keys = Object.keys(content);
+    const key = keys.find(k => (k === 'conversation' || k.endsWith('Message')) && k !== 'senderKeyDistributionMessage');
+    return key;
+}
+
 module.exports = {
     extractNumber,
     isLid,
     isGroup,
-    jidNormalizedUser
+    jidNormalizedUser,
+    getContentType
 };

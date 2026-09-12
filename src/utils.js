@@ -21,3 +21,10 @@ export function jidNormalizedUser(jid) {
     }
     return jid;
 }
+
+export function getContentType(content) {
+    if (!content) return undefined;
+    const keys = Object.keys(content);
+    const key = keys.find(k => (k === 'conversation' || k.endsWith('Message')) && k !== 'senderKeyDistributionMessage');
+    return key;
+}
