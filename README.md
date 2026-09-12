@@ -1,8 +1,9 @@
 # 🐾 nozez-whatsmeow
 
-[![npm version](https://img.shields.io/badge/version-1.0.0-crimson.svg)](https://github.com/nozez-lab/nozez-whatsmeow)
+[![npm version](https://img.shields.io/npm/v/nozez-whatsmeow.svg?color=crimson)](https://www.npmjs.com/package/nozez-whatsmeow)
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
 [![Engine: whatsmeow](https://img.shields.io/badge/Engine-whatsmeow%20(Go)-blue.svg)](https://go.mau.fi/whatsmeow)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows-lightgrey.svg)](https://github.com/nozez-lab/nozez-whatsmeow)
 
 **nozez-whatsmeow** is a high-performance WhatsApp API library for **Node.js** developed by **Nozez**. It delivers a familiar, Baileys-like developer experience (`makeWASocket`, `ev.on`, `sendMessage`, etc.) while delegating all WebSocket network connections and protocol encryptions to a lightweight **Golang engine (`whatsmeow`)** under the hood.
 
