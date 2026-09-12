@@ -1,5 +1,11 @@
+import { spawn } from "child_process";
+import readline from "readline";
+import { EventEmitter } from "events";
+import path from "path";
+import fs from "fs";
 import http from "http";
 import https from "https";
+import os from "os";
 
 function downloadUrlToTmp(url) {
     return new Promise((resolve, reject) => {
