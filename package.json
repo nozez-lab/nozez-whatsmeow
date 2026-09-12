@@ -1,0 +1,20 @@
+{
+    "name": "nozez-whatsmeow",
+    "version": "1.0.0",
+    "description": "High-performance WhatsApp bot library bridging Go engine (whatsmeow) and Node.js via Stdio IPC by Nozez",
+    "type": "module",
+    "main": "./src/index.js",
+    "files": [
+        "src",
+        "go-engine",
+        "README.md"
+    ],
+    "scripts": {
+        "build:win": "cd go-engine && go build -o main_win.exe main.go",
+        "build:linux": "cd go-engine && GOOS=linux GOARCH=amd64 go build -o main_linux main.go"
+    },
+    "dependencies": {
+        "ffmpeg-static": "^5.2.0",
+        "sharp": "^0.33.5"
+    }
+}
