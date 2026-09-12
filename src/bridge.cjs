@@ -106,7 +106,14 @@ class NozezWhatsMeowBridge extends EventEmitter {
         }
 
         if (event === "connection.update") {
-            this.emit("connection.update", data);
+            const status = data?.status;
+            if (status === "open") {
+                this.emit("connection.update", { open: true, ...data });
+            } else if (status === "close" || status === "connecting") {
+                this.emit("connection.update", { open: false, reason: data?.reason, ...data });
+            } else {
+                this.emit("connection.update", data);
+            }
         } else if (event === "qr") {
             this.emit("qr", data.codes ? data.codes[0] : "");
         } else if (event === "pairing_code") {
@@ -132,7 +139,7 @@ class NozezWhatsMeowBridge extends EventEmitter {
     }
 
     requestPairingCode(phone) {
-        return this._sendCmd("request_pairing_code", { phone });
+        return this._sendCmd("requestPairingCode", { phone });
     }
 
     sendMessage(jid, content = {}, options = {}) {
