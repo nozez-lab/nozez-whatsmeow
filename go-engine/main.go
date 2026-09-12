@@ -108,6 +108,41 @@ func extractMediaMessage(msg *waProto.Message) (*waProto.Message, string, string
 		return msg, ext, "image"
 	}
 
+func unwrapMessage(msg *waProto.Message) (*waProto.Message, bool) {
+	if msg == nil {
+		return nil, false
+	}
+	isVO := false
+	if vo := msg.GetViewOnceMessage(); vo != nil && vo.Message != nil {
+		msg = vo.Message
+		isVO = true
+	}
+	if voV2 := msg.GetViewOnceMessageV2(); voV2 != nil && voV2.Message != nil {
+		msg = voV2.Message
+		isVO = true
+	}
+	if voV2Ext := msg.GetViewOnceMessageV2Extension(); voV2Ext != nil && voV2Ext.Message != nil {
+		msg = voV2Ext.Message
+		isVO = true
+	}
+	return msg, isVO
+}
+
+func extractMediaMessage(msg *waProto.Message) (*waProto.Message, string, string) {
+	if msg == nil {
+		return nil, "", ""
+	}
+
+	msg, _ = unwrapMessage(msg)
+
+	if img := msg.GetImageMessage(); img != nil {
+		ext := ".jpg"
+		if img.GetMimetype() == "image/png" {
+			ext = ".png"
+		}
+		return msg, ext, "image"
+	}
+
 	if msg.GetVideoMessage() != nil {
 		return msg, ".mp4", "video"
 	}
@@ -144,6 +179,11 @@ func extractMediaMessage(msg *waProto.Message) (*waProto.Message, string, string
 func parseMessageContent(msg *waProto.Message) (string, string) {
 	if msg == nil {
 		return "Chat", ""
+	}
+
+	unwrapped, _ := unwrapMessage(msg)
+	if unwrapped != nil {
+		msg = unwrapped
 	}
 
 	if text := msg.GetConversation(); text != "" {
@@ -291,6 +331,8 @@ func main() {
 				}
 			}
 
+			_, isViewOnce := unwrapMessage(v.Message)
+
 			metaData := map[string]interface{}{
 				"chat":         chatJid,
 				"senderJid":    senderJid,
@@ -299,6 +341,7 @@ func main() {
 				"body":         body,
 				"quotedId":     quotedMsgId,
 				"quotedSender": quotedSender,
+				"isViewOnce":   isViewOnce,
 			}
 
 			rawData := map[string]interface{}{
